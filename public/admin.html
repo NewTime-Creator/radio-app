@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio Control Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        .brand-green { background-color: #195E33; }
+        .brand-green-hover:hover { background-color: #2a7a47; }
+        .brand-green-light { background-color: #22c55e; }
+        .tab-button {
+            padding: 12px 24px;
+            background-color: #f1f5f9;
+            border-radius: 8px;
+            transition: all 0.2s;
+            color: #475569;
+            font-weight: 600;
+            border: 1px solid #e2e8f0;
+        }
+        .tab-button.active {
+            background-color: #195E33;
+            color: #ffffff;
+            border-color: #195E33;
+        }
+        .tab-button:hover:not(.active) {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50">
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 brand-green rounded-full flex items-center justify-center">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M9 12a3 3 0 006 0v-6a3 3 0 00-6 0v6z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-light text-slate-800">Radio Control Center</h1>
+                        <p class="text-sm text-slate-500"></p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="listener-count" class="brand-green px-4 py-2 rounded-lg text-white">
+                        <span class="font-semibold">0 слушатели</span>
+                    </div>
+                    <div id="radio-status" class="bg-red-500 px-4 py-2 rounded-lg text-white">
+                        <span class="font-semibold">OFFLINE</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-6 py-6 grid grid-cols-12 gap-6">
+        <!-- Live Controls -->
+        <div class="col-span-12 lg:col-span-4">
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <h2 class="text-xl font-medium mb-4 text-slate-800">Live управление</h2>
+                
+                <!-- Current Track -->
+                <div class="bg-slate-50 p-4 rounded-lg mb-4 border border-slate-100">
+                    <div class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Сега свири</div>
+                    <div id="current-track" class="font-medium text-lg text-slate-800">--</div>
+                    <div id="current-artist" class="text-slate-600">--</div>
+                    <div class="mt-3">
+                        <div id="progress-bar" class="w-full bg-slate-200 rounded-full h-2">
+                            <div id="progress-fill" class="brand-green h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500 mt-1">
+                            <span id="current-time">0:00</span>
+                            <span id="total-time">0:00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="space-y-3">
+                    <button onclick="skipTrack()" class="w-full brand-green brand-green-hover text-white font-medium py-3 px-4 rounded-lg transition">
+                        Прескочи песен
+                    </button>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="playRandomAd()" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-3 rounded-lg transition text-sm">
+                            Пусни реклама
+                        </button>
+                        <button onclick="restartRadio()" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg transition text-sm">
+                            Рестарт
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Management -->
+        <div class="col-span-12 lg:col-span-8">
+            <!-- Tabs -->
+            <div class="flex space-x-1 mb-6 bg-white p-1 rounded-lg border border-slate-200">
+                <button onclick="showTab('songs')" id="tab-songs" class="tab-button active">
+                    Музика
+                </button>
+                <button onclick="showTab('ads')" id="tab-ads" class="tab-button">
+                    Реклами
+                </button>
+                <button onclick="showTab('schedule')" id="tab-schedule" class="tab-button">
+                    График
+                </button>
+                <button onclick="showTab('upload')" id="tab-upload" class="tab-button">
+                    Добави
+                </button>
+            </div>
+
+            <!-- Songs Tab -->
+            <div id="content-songs" class="tab-content">
+                <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-medium text-slate-800">Музикална библиотека</h2>
+                        <button onclick="loadSongs()" class="brand-green brand-green-hover text-white px-4 py-2 rounded-lg text-sm">
+                            Обнови
+                        </button>
+                    </div>
+                    <div id="songs-list" class="space-y-3">Зареждане...</div>
+                </div>
+            </div>
+
+            <!-- Ads Tab -->
+            <div id="content-ads" class="tab-content hidden">
+                <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-medium text-slate-800">Рекламна библиотека</h2>
+                        <button onclick="loadAds()" class="brand-green brand-green-hover text-white px-4 py-2 rounded-lg text-sm">
+                            Обнови
+                        </button>
+                    </div>
+                    <div id="ads-list" class="space-y-3">Зареждане...</div>
+                </div>
+            </div>
+
+            <!-- Schedule Tab -->
+            <div id="content-schedule" class="tab-content hidden">
+                <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-medium text-slate-800">График на реклами</h2>
+                        <button onclick="showAddScheduleModal()" class="brand-green brand-green-hover text-white px-4 py-2 rounded-lg text-sm">
+                            Добави график
+                        </button>
+                    </div>
+                    <div id="schedule-list" class="space-y-3">Зареждане...</div>
+                </div>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="content-upload" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Upload Song -->
+                    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-medium mb-4 text-slate-800">Добави песен</h3>
+                        <form id="upload-song-form" class="space-y-4">
+                            <input id="upload-song-title" type="text" placeholder="Заглавие на песента" required class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            
+                            <input id="upload-song-artist" type="text" placeholder="Изпълнител" required class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            
+                            <input id="upload-song-genre" type="text" placeholder="Жанр (опционално)" class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            
+                            <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-green-500 transition-colors cursor-pointer" onclick="document.getElementById('upload-song-file').click()">
+                                <input id="upload-song-file" type="file" accept="audio/*" required class="hidden">
+                                <svg class="w-12 h-12 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                <span class="text-slate-600">Кликни за избор на файл</span>
+                                <p class="text-xs text-slate-500 mt-1">MP3, WAV, OGG (до 100MB)</p>
+                                <p id="song-file-name" class="text-sm text-green-600 mt-2 hidden"></p>
+                            </div>
+                            
+                            <button type="submit" class="w-full brand-green brand-green-hover text-white font-medium py-3 rounded-lg">
+                                <span id="upload-song-btn-text">Качи песен</span>
+                                <span id="upload-song-spinner" class="hidden">⏳ Качва се...</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Upload Ad -->
+                    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-medium mb-4 text-slate-800">Добави реклама</h3>
+                        <form id="upload-ad-form" class="space-y-4">
+                            <input id="upload-ad-title" type="text" placeholder="Заглавие на рекламата" required class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            
+                            <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-orange-500 transition-colors cursor-pointer" onclick="document.getElementById('upload-ad-file').click()">
+                                <input id="upload-ad-file" type="file" accept="audio/*" required class="hidden">
+                                <svg class="w-12 h-12 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                <span class="text-slate-600">Кликни за избор на файл</span>
+                                <p class="text-xs text-slate-500 mt-1">MP3, WAV, OGG (до 100MB)</p>
+                                <p id="ad-file-name" class="text-sm text-orange-600 mt-2 hidden"></p>
+                            </div>
+                            
+                            <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-lg">
+                                <span id="upload-ad-btn-text">Качи реклама</span>
+                                <span id="upload-ad-spinner" class="hidden">⏳ Качва се...</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div id="schedule-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md border border-slate-200">
+            <h3 class="text-lg font-medium mb-4 text-slate-800">Планирай реклама</h3>
+            <div class="space-y-4">
+                <select id="schedule-ad" class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <option value="">Избери реклама</option>
+                </select>
+                <input id="schedule-time" type="time" class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                <div class="grid grid-cols-7 gap-2">
+                    <label class="flex flex-col items-center text-xs">
+                        <input type="checkbox" value="1" class="schedule-day mb-1" checked>
+                        Пн
+                    </label>
+                    <label class="flex flex-col items-center text-xs">
+                        <input type="checkbox" value="2" class="schedule-day mb-1" checked>
+                        Вт
+                    </label>
+                    <label class="flex flex-col items-center text-xs">
+                        <input type="checkbox" value="3" class="schedule-day mb-1" checked>
+                        Ср
+                    </label>
+                    <label class="flex flex-col items-center text-xs">
+                        <input type="checkbox" value="4" class="schedule-day mb-1" checked>
+                        Чт
+                    </label>
+                    <label class="flex flex-col items-center text-xs">
+                        <input type="checkbox" value="5" class="schedule-day mb-1" checked>
+                        Пт
+                    </label>
+                    <label class="flex flex-col items-center text-xs">
+                        <input type="checkbox" value="6" class="schedule-day mb-1">
+                        Сб
+                    </label>
+                    <label class="flex flex-col items-center text-xs">
+                        <input type="checkbox" value="7" class="schedule-day mb-1">
+                        Нд
+                    </label>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="hideScheduleModal()" class="flex-1 bg-slate-300 hover:bg-slate-400 text-slate-700 py-2 rounded-lg">
+                        Отказ
+                    </button>
+                    <button onclick="addSchedule()" class="flex-1 brand-green brand-green-hover text-white py-2 rounded-lg">
+                        Запази
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentState = null;
+        let songs = [];
+        let ads = [];
+        let schedules = [];
+
+        // Socket events
+        socket.on('radio-state', (state) => {
+            currentState = state;
+            updateLiveDisplay(state);
+        });
+
+        function updateLiveDisplay(state) {
+            // Update listener count
+            document.getElementById('listener-count').innerHTML = `<span class="font-semibold">${state.listeners} слушатели</span>`;
+            
+            // Update radio status
+            const statusEl = document.getElementById('radio-status');
+            if (state.isPlaying) {
+                statusEl.className = 'brand-green px-4 py-2 rounded-lg text-white';
+                statusEl.innerHTML = '<span class="font-semibold">ON AIR</span>';
+            } else {
+                statusEl.className = 'bg-red-500 px-4 py-2 rounded-lg text-white';
+                statusEl.innerHTML = '<span class="font-semibold">OFFLINE</span>';
+            }
+
+            // Update current track
+            const track = state.isPlayingAd ? state.currentAd : state.currentTrack;
+            if (track) {
+                document.getElementById('current-track').textContent = track.title;
+                document.getElementById('current-artist').textContent = state.isPlayingAd ? 'Реклама' : track.artist;
+                
+                // Calculate progress
+                if (state.startedAt) {
+                    const startTime = new Date(state.startedAt);
+                    const now = new Date();
+                    const elapsed = Math.max(0, (now - startTime) / 1000);
+                    const progress = Math.min((elapsed / track.duration) * 100, 100);
+                    
+                    document.getElementById('progress-fill').style.width = progress + '%';
+                    document.getElementById('current-time').textContent = formatTime(elapsed);
+                    document.getElementById('total-time').textContent = formatTime(track.duration);
+                }
+            }
+        }
+
+        // Tab management
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            if (tabName === 'songs') loadSongs();
+            else if (tabName === 'ads') loadAds();
+            else if (tabName === 'schedule') loadSchedules();
+        }
+
+        // Live controls
+        function skipTrack() {
+            if (confirm('Прескачаш текущата песен?')) {
+                socket.emit('admin-skip-track');
+            }
+        }
+
+        function playRandomAd() {
+            if (ads.length === 0) {
+                alert('Няма налични реклами');
+                return;
+            }
+            const randomAd = ads[Math.floor(Math.random() * ads.length)];
+            socket.emit('admin-play-ad', randomAd.id);
+        }
+
+        function restartRadio() {
+            if (confirm('Рестартираш радиото?')) {
+                fetch('/api/radio/restart', { method: 'POST' });
+            }
+        }
+
+        // Data loading
+        async function loadSongs() {
+            try {
+                const response = await fetch('/api/songs');
+                songs = await response.json();
+                renderSongs();
+            } catch (error) {
+                console.error('Грешка при зареждане на песни:', error);
+            }
+        }
+
+        async function loadAds() {
+            try {
+                const response = await fetch('/api/ads');
+                ads = await response.json();
+                renderAds();
+                updateScheduleAdOptions();
+            } catch (error) {
+                console.error('Грешка при зареждане на реклами:', error);
+            }
+        }
+
+        async function loadSchedules() {
+            try {
+                const response = await fetch('/api/ad-schedule');
+                schedules = await response.json();
+                renderSchedules();
+            } catch (error) {
+                console.error('Грешка при зареждане на график:', error);
+            }
+        }
+
+        function renderSongs() {
+            const container = document.getElementById('songs-list');
+            if (songs.length === 0) {
+                container.innerHTML = '<p class="text-slate-500">Няма песни в библиотеката</p>';
+                return;
+            }
+
+            const html = songs.map(song => `
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 flex justify-between items-center">
+                    <div class="flex-1">
+                        <h3 class="font-medium text-slate-800">${song.title}</h3>
+                        <p class="text-slate-600 text-sm">${song.artist} • ${formatTime(song.duration)}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="playNow('song', '${song.id}')" class="brand-green brand-green-hover text-white px-3 py-1 rounded text-sm">
+                            Пусни сега
+                        </button>
+                        <button onclick="deleteSong('${song.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                            Изтрий
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            container.innerHTML = html;
+        }
+
+        function renderAds() {
+            const container = document.getElementById('ads-list');
+            if (ads.length === 0) {
+                container.innerHTML = '<p class="text-slate-500">Няма реклами в библиотеката</p>';
+                return;
+            }
+
+            const html = ads.map(ad => `
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 flex justify-between items-center">
+                    <div class="flex-1">
+                        <h3 class="font-medium text-slate-800">${ad.title}</h3>
+                        <p class="text-slate-600 text-sm">${formatTime(ad.duration)}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="playNow('ad', '${ad.id}')" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm">
+                            Пусни сега
+                        </button>
+                        <button onclick="deleteAd('${ad.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                            Изтрий
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            container.innerHTML = html;
+        }
+
+        function renderSchedules() {
+            const container = document.getElementById('schedule-list');
+            if (schedules.length === 0) {
+                container.innerHTML = '<p class="text-slate-500">Няма планирани реклами</p>';
+                return;
+            }
+
+            const html = schedules.map(schedule => `
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 flex justify-between items-center">
+                    <div class="flex-1">
+                        <h3 class="font-medium text-slate-800">${schedule.ads ? schedule.ads.title : 'Непозната реклама'}</h3>
+                        <p class="text-slate-600 text-sm">${schedule.scheduled_time} • ${getDayNames(schedule.days_of_week)}</p>
+                    </div>
+                    <button onclick="deleteSchedule('${schedule.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                        Изтрий
+                    </button>
+                </div>
+            `).join('');
+            container.innerHTML = html;
+        }
+
+        // === FILE UPLOAD HANDLERS ===
+
+        // Song file selection
+        document.getElementById('upload-song-file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const nameDisplay = document.getElementById('song-file-name');
+            if (file) {
+                nameDisplay.textContent = `✓ ${file.name}`;
+                nameDisplay.classList.remove('hidden');
+            }
+        });
+
+        // Ad file selection
+        document.getElementById('upload-ad-file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const nameDisplay = document.getElementById('ad-file-name');
+            if (file) {
+                nameDisplay.textContent = `✓ ${file.name}`;
+                nameDisplay.classList.remove('hidden');
+            }
+        });
+
+        // Upload song form
+        document.getElementById('upload-song-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('upload-song-title').value;
+            const artist = document.getElementById('upload-song-artist').value;
+            const genre = document.getElementById('upload-song-genre').value;
+            const file = document.getElementById('upload-song-file').files[0];
+            
+            if (!file) {
+                alert('Моля изберете файл');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('upload-song-btn-text').classList.add('hidden');
+            document.getElementById('upload-song-spinner').classList.remove('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('title', title);
+                formData.append('artist', artist);
+                if (genre) formData.append('genre', genre);
+                
+                const response = await fetch('/api/upload/song', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(result.message);
+                    document.getElementById('upload-song-form').reset();
+                    document.getElementById('song-file-name').classList.add('hidden');
+                    loadSongs();
+                } else {
+                    alert('❌ Грешка: ' + result.error);
+                }
+            } catch (error) {
+                alert('❌ Грешка при качване: ' + error.message);
+            } finally {
+                // Hide loading
+                document.getElementById('upload-song-btn-text').classList.remove('hidden');
+                document.getElementById('upload-song-spinner').classList.add('hidden');
+            }
+        });
+
+        // Upload ad form
+        document.getElementById('upload-ad-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('upload-ad-title').value;
+            const file = document.getElementById('upload-ad-file').files[0];
+            
+            if (!file) {
+                alert('Моля изберете файл');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('upload-ad-btn-text').classList.add('hidden');
+            document.getElementById('upload-ad-spinner').classList.remove('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('title', title);
+                
+                const response = await fetch('/api/upload/ad', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(result.message);
+                    document.getElementById('upload-ad-form').reset();
+                    document.getElementById('ad-file-name').classList.add('hidden');
+                    loadAds();
+                } else {
+                    alert('❌ Грешка: ' + result.error);
+                }
+            } catch (error) {
+                alert('❌ Грешка при качване: ' + error.message);
+            } finally {
+                // Hide loading
+                document.getElementById('upload-ad-btn-text').classList.remove('hidden');
+                document.getElementById('upload-ad-spinner').classList.add('hidden');
+            }
+        });
+
+        // Schedule functions
+        function showAddScheduleModal() {
+            document.getElementById('schedule-modal').classList.remove('hidden');
+        }
+
+        function hideScheduleModal() {
+            document.getElementById('schedule-modal').classList.add('hidden');
+        }
+
+        function updateScheduleAdOptions() {
+            const select = document.getElementById('schedule-ad');
+            select.innerHTML = '<option value="">Избери реклама</option>';
+            ads.forEach(ad => {
+                select.innerHTML += `<option value="${ad.id}">${ad.title}</option>`;
+            });
+        }
+
+        async function addSchedule() {
+            const adId = document.getElementById('schedule-ad').value;
+            const time = document.getElementById('schedule-time').value;
+            const selectedDays = Array.from(document.querySelectorAll('.schedule-day:checked')).map(cb => parseInt(cb.value));
+
+            if (!adId || !time || selectedDays.length === 0) {
+                alert('Моля попълнете всички полета');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/ad-schedule', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        ad_id: adId,
+                        scheduled_time: time,
+                        days_of_week: selectedDays,
+                        is_active: true
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Графикът е добавен успешно!');
+                    hideScheduleModal();
+                    loadSchedules();
+                } else {
+                    alert('Грешка при добавяне на график');
+                }
+            } catch (error) {
+                alert('Грешка: ' + error.message);
+            }
+        }
+
+        // Utility functions
+        function playNow(type, id) {
+            if (type === 'ad') {
+                socket.emit('admin-play-ad', id);
+            } else {
+                if (confirm('Пускаш тази песен веднага?')) {
+                    socket.emit('admin-play-song-next', id);
+                }
+            }
+        }
+
+        async function deleteSong(id) {
+            if (!confirm('Изтриваш тази песен?')) return;
+            const response = await fetch(`/api/songs/${id}`, { method: 'DELETE' });
+            if (response.ok) loadSongs();
+        }
+
+        async function deleteAd(id) {
+            if (!confirm('Изтриваш тази реклама?')) return;
+            const response = await fetch(`/api/ads/${id}`, { method: 'DELETE' });
+            if (response.ok) loadAds();
+        }
+
+        async function deleteSchedule(id) {
+            if (!confirm('Изтриваш този график?')) return;
+            const response = await fetch(`/api/ad-schedule/${id}`, { method: 'DELETE' });
+            if (response.ok) loadSchedules();
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function getDayNames(days) {
+            const names = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+            return days.map(day => names[day]).join(', ');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            showTab('songs');
+        });
+    </script>
+</body>
+</html>

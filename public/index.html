@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интернет Радио</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #195E33;
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #195E33;
+            cursor: pointer;
+            border: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b border-slate-200">
+        <div class="max-w-4xl mx-auto px-6 py-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-[#195E33] rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M9 12a3 3 0 006 0v-6a3 3 0 00-6 0v6z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-light text-slate-800">Моето А Радио</h1>
+                    <p class="text-sm text-slate-500">Непрекъснато 24/7</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Player -->
+    <div class="max-w-4xl mx-auto px-6 py-8">
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+            <!-- Current Track Info -->
+            <div class="p-8 bg-gradient-to-r from-[#195E33] to-[#2a7a47] text-white">
+                <div class="flex items-center space-x-6">
+                    <div class="w-20 h-20 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                        </svg>
+                    </div>
+                    
+                    <div class="flex-1">
+                        <h2 id="track-title" class="text-2xl font-light mb-1">Зареждане...</h2>
+                        <p id="track-artist" class="text-white/80 text-lg">Моля изчакайте</p>
+                        <div class="flex items-center space-x-4 mt-3 text-sm text-white/70">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span id="track-time">0:00</span>
+                            </span>
+                            <span id="listeners-count">0 слушатели</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="mt-6">
+                    <div class="w-full bg-white/20 rounded-full h-2">
+                        <div id="progress-bar" class="bg-white h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="p-6 bg-slate-50">
+                <div class="flex items-center justify-center space-x-8">
+                    <!-- Play/Pause Button -->
+                    <button id="play-btn" class="w-16 h-16 bg-[#195E33] hover:bg-[#2a7a47] rounded-full flex items-center justify-center transition-colors shadow-lg">
+                        <svg id="play-icon" class="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg id="pause-icon" class="w-8 h-8 text-white hidden" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                    </button>
+
+                    <!-- Volume Control -->
+                    <div class="flex items-center space-x-3">
+                        <button id="mute-btn" class="p-3 rounded-full hover:bg-slate-200 transition-colors">
+                            <svg id="volume-on" class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M9 12a3 3 0 006 0v-6a3 3 0 00-6 0v6z"></path>
+                            </svg>
+                            <svg id="volume-off" class="w-5 h-5 text-slate-600 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+                            </svg>
+                        </button>
+                        <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.7" class="w-20 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Status -->
+        <div class="mt-8 text-center">
+            <div class="inline-flex items-center space-x-2 bg-red-50 text-red-600 px-4 py-2 rounded-full">
+                <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span class="text-sm font-medium">НА ЖИВО</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Element -->
+    <audio id="radio-audio" preload="none"></audio>
+
+    <script>
+        const socket = io();
+        const audio = document.getElementById('radio-audio');
+        const playBtn = document.getElementById('play-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const volumeSlider = document.getElementById('volume-slider');
+        const muteBtn = document.getElementById('mute-btn');
+        const volumeOn = document.getElementById('volume-on');
+        const volumeOff = document.getElementById('volume-off');
+
+        let isPlaying = false;
+        let currentTrack = null;
+
+        // Socket events
+        socket.on('radio-state', (state) => {
+            updateUI(state);
+        });
+
+        function updateUI(state) {
+            const track = state.isPlayingAd ? state.currentAd : state.currentTrack;
+            
+            if (track) {
+                document.getElementById('track-title').textContent = 
+                    state.isPlayingAd ? `📢 ${track.title}` : track.title;
+                document.getElementById('track-artist').textContent = 
+                    state.isPlayingAd ? 'Реклама' : track.artist;
+                
+                if (audio.src !== track.file_url) {
+                    audio.src = track.file_url;
+                    if (isPlaying) {
+                        audio.play().catch(console.error);
+                    }
+                }
+                
+                // Update progress
+                if (state.startedAt) {
+                    const startTime = new Date(state.startedAt);
+                    const now = new Date();
+                    const elapsed = (now - startTime) / 1000;
+                    const progress = Math.min((elapsed / track.duration) * 100, 100);
+                    
+                    document.getElementById('progress-bar').style.width = progress + '%';
+                    document.getElementById('track-time').textContent = formatTime(elapsed);
+                }
+                
+                currentTrack = track;
+            }
+            
+            document.getElementById('listeners-count').textContent = 
+                `${state.listeners} слушатели`;
+        }
+
+        // Controls
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                audio.pause();
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            } else {
+                audio.play().catch(console.error);
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            }
+            isPlaying = !isPlaying;
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            audio.volume = e.target.value;
+        });
+
+        muteBtn.addEventListener('click', () => {
+            audio.muted = !audio.muted;
+            if (audio.muted) {
+                volumeOn.classList.add('hidden');
+                volumeOff.classList.remove('hidden');
+            } else {
+                volumeOn.classList.remove('hidden');
+                volumeOff.classList.add('hidden');
+            }
+        });
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
