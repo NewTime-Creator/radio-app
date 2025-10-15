@@ -1,20 +1,24 @@
-# Използвай Node.js 18
-FROM node:18-alpine
+# --- FIX 1: Use Node 20 Alpine to match package.json engine requirement ---
+FROM node:20-alpine
 
-# Работна директория
+# Set working directory
 WORKDIR /app
 
-# Копирай package files
+# Copy package.json and package-lock.json first to take advantage of caching
 COPY package*.json ./
 
-# Инсталирай dependencies
-RUN npm install --production
+# --- FIX 2: Install dependencies with correct Node version ---
+# Use --omit=dev for production, as recommended by npm 10+
+RUN npm install --omit=dev
 
-# Копирай всички файлове
+# Copy the rest of the app
 COPY . .
 
-# Порт
+# --- FIX 3: Ensure environment variable PORT is respected ---
+ENV PORT=3001
+
+# Expose the port that the app listens on
 EXPOSE 3001
 
-# Стартирай сървъра
+# --- FIX 4: Start the app using npm start ---
 CMD ["npm", "start"]
